@@ -28,13 +28,14 @@ def get_training_data(number_of_files):
   for file_name in os.listdir("./ext"):
     filename, file_extension = os.path.splitext(file_name)
 
+    count += 1
+
     if file_extension != '.json':
       continue
 
     if count > number_of_files:
       break
 
-    count += 1
     print(str(count) + "/" + str(number_of_files) + ": " + file_name)
     #splice in data here not only latest file
     boards_n, moves_n = return_training_data(file_name)
@@ -69,9 +70,9 @@ def home_made_train_test_split(x, y, test_size=0.25):
 
 # should add training function and so on
 def train_network(model_name):
-  epochs = 80
-  batch_size = 600
-  number_of_files = 3
+  epochs = 1
+  batch_size = 400
+  number_of_files = 1
 
   X, Y = get_training_data(number_of_files)
   model_filepath = "model/" + model_name + ".h5"
@@ -85,10 +86,10 @@ def train_network(model_name):
   checkpointCallBack=ModelCheckpoint(model_filepath, monitor='val_acc', verbose=1, save_best_only=True, mode='max')
   esCallBack = EarlyStopping(monitor='val_acc', patience=5, min_delta=0.0001)
 
-  estimator = KerasRegressor(build_fn=model_creator, verbose=1)
-  estimator.fit(x_train, y_train, epochs=epochs, batch_size=batch_size, callbacks=[esCallBack, tbCallBack, checkpointCallBack], validation_data=(x_test, y_test), shuffle=True)
-  loss_and_metrics = estimator.model.evaluate(x_test, y_test, verbose=0)
+  model = model_creator()
+  model.fit(x_train, y_train, epochs=epochs, batch_size=batch_size, callbacks=[esCallBack, tbCallBack, checkpointCallBack], validation_data=(x_test, y_test), shuffle=True)
+  loss_and_metrics = model.evaluate(x_test, y_test, verbose=0)
   print(loss_and_metrics)
-  print(estimator.model.metrics_names[1] + ": " + str(loss_and_metrics[1] * 100))
+  print(model.metrics_names[1] + ": " + str(loss_and_metrics[1] * 100))
 
-  estimator.model.save(model_filepath)
+  model.save(model_filepath)

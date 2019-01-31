@@ -17,17 +17,16 @@ def model_creator():
   model.add(Embedding(15, 8, input_length=130))
   model.add(Flatten())
   model.add(Dense(
-    units=128,
+    units=248,
     kernel_initializer='normal',
     bias_initializer=bias_init,
     activation="relu",
     input_dim=130))
-  model.add(Dropout(0.4))
-  model.add(Dense(units=64, activation="relu"))
+  model.add(Dropout(0.2))
   model.add(Dense(units=2, activation="sigmoid")) #sigmoid might not be the very best
 
   opt = Adam(lr=0.001)
-  model.compile(loss=losses.mean_absolute_error,
+  model.compile(loss=losses.mean_squared_error,
                 optimizer=opt,
                 metrics=['accuracy', 'mse'])
   return model

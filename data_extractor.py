@@ -124,21 +124,20 @@ if __name__ == "__main__":
 
   success_count = 0
   all_data = []
-  cunk_move = 2000000 #how many moves per file
+  chunk_move = 50000 #how many moves per file
   index_num = 0
   setname = 'value'
 
   for file_n in file_names:
     try:
-      data = get_training_data(file_n)
-      all_data = all_data + data
+      all_data = get_training_data(file_n)
 
-      if len(all_data) > cunk_move:
+      for i in range(round(len(all_data)/chunk_move)):
         index_num += 1
         with open('ext/extracted_data_'+ setname + '_' + str(index_num) + '.json', 'w') as outfile:
-          json.dump(all_data, outfile)
-          all_data = []
+          json.dump(all_data[(i)*chunk_move:(i)*chunk_move+chunk_move], outfile)
 
+      all_data = []
       success_count += 1
       if success_count > (len(file_names)/2):
         break
@@ -146,8 +145,5 @@ if __name__ == "__main__":
     except Exception as e:
       print('File failed: ', file_n)
       print(e)
-
-  with open('ext/extracted_data_'+ setname + '_' + str(index_num) + '.json', 'w') as outfile:
-    json.dump(all_data, outfile)
 
   print('Successfully loaded: {0}/{1}'.format(success_count, len(file_names)))

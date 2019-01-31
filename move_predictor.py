@@ -9,7 +9,7 @@ import chess
 from flask import Flask, request, Response
 
 from data_extractor import convert_fen_label
-from train_network import train_network
+from train_network_generator import train_network
 from keras.models import Sequential, load_model
 
 # Just disables the warning, doesn't enable AVX/FMA
