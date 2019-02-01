@@ -84,6 +84,7 @@ def get_training_data(file_name):
       item = {}
       item['board'] = convert_fen_label(str(board.fen()))
       item['fen'] = str(board.fen())
+      item['turn'] = 1 if board.turn else 0
 
       # make move and save it as board gives move
       board.push(move)
@@ -95,17 +96,18 @@ def get_training_data(file_name):
 
       #random move
       #for generating winning predictor
-      count = round(board.pseudo_legal_moves.count() * random.randint(1,101) / 100)
-      for m in board.pseudo_legal_moves:
+      count = round(tmp_board.pseudo_legal_moves.count() * random.randint(1,101) / 100)
+      for m in tmp_board.pseudo_legal_moves:
         move = m
         count -= 1
         if count < 0:
           break
 
+      item1 = {}
+      item1['turn'] = 1 if tmp_board.turn else 0
       tmp_board.push(move)
       move = tmp_board.peek()
 
-      item1 = {}
       item1['board'] = convert_fen_label(str(board.fen()))
       item1['fen'] = str(board.fen())
       item1['move'] = convert_fen_label(str(board.fen()))[:65]

@@ -31,11 +31,12 @@ def get_training_data(batch_size):
     if pop_new:
       file_name = file_names.pop()
       count = 0
-      print(file_name)
+      print('   ' + file_name, end='\r')
       pop_new = False
 
     filename, file_extension = os.path.splitext(file_name)
     if file_extension != '.json':
+      pop_new = True
       continue
 
     #splice in data here not only latest file
@@ -46,6 +47,7 @@ def get_training_data(batch_size):
     yield x, y
 
     count += batch_size
+  print('woh')
 
 def return_training_data(file_name, batch_size, point):
     with open("ext/" + file_name, "r") as file:
@@ -53,7 +55,7 @@ def return_training_data(file_name, batch_size, point):
       Y = []
       data = json.load(file)
       for x in data[point:point+batch_size]:
-        tmp = x['board'] + x['move']
+        tmp = x['board'] + x['move'] + [x['turn']]
         X.append(tmp)
         Y.append([1 - x['winning'], x['winning']])
 
@@ -62,16 +64,16 @@ def return_training_data(file_name, batch_size, point):
 # should add training function and so on
 def train_network(model_name):
   epochs = 1
-  batch_size = 1000
+  batch_size = 600
   number_of_files = 1
 
   model_filepath = "model/" + model_name + ".h5"
 
   tbCallBack = keras.callbacks.TensorBoard(log_dir='./Graph/' + model_name, histogram_freq=0, write_graph=True, write_images=True)
-  checkpointCallBack=ModelCheckpoint(model_filepath, monitor='val_acc', verbose=1, save_best_only=True, mode='max')
+  checkpointCallBack=ModelCheckpoint(model_filepath, monitor='val_loss', verbose=1, save_best_only=True, mode='min')
 
   model = model_creator()
-  model.fit_generator(get_training_data(batch_size), epochs=epochs, samples_per_epoch=4000, callbacks=[checkpointCallBack], validation_data=get_training_data(batch_size), validation_steps=10)
+  model.fit_generator(get_training_data(batch_size), epochs=epochs, samples_per_epoch=270, callbacks=[checkpointCallBack], validation_data=get_training_data(batch_size), validation_steps=10)
   loss_and_metrics = model.evaluate_generator(get_training_data(batch_size), steps=40, verbose=0)
   print(loss_and_metrics)
   print(model.metrics_names[1] + ": " + str(loss_and_metrics[1] * 100))

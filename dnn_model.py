@@ -14,15 +14,15 @@ def model_creator():
   bias_init = keras.initializers.Ones()
 
   #network might work well without embeddings
-  model.add(Embedding(15, 8, input_length=130))
+  model.add(Embedding(15, 8, input_length=131))
   model.add(Flatten())
   model.add(Dense(
     units=248,
     kernel_initializer='normal',
     bias_initializer=bias_init,
     activation="relu",
-    input_dim=130))
-  model.add(Dropout(0.2))
+    input_dim=131))
+  model.add(Dropout(0.4))
   model.add(Dense(units=2, activation="sigmoid")) #sigmoid might not be the very best
 
   opt = Adam(lr=0.001)

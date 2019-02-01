@@ -30,7 +30,7 @@ def getmove():
   if not c_model:
     c_model = load_model('model/' + current_model + '.h5')
 
-  move = predict(fen + ' b - - 0 0', c_model) # look into fen additional params
+  move = predict(fen + ' w - - 0 0', c_model, True) # look into fen additional params
 
   res = Response(json.dumps([{"move": move[0], "explination": move[1]}]),  mimetype='application/json')
   res.headers['Access-Control-Allow-Origin'] = '*'
@@ -41,16 +41,17 @@ def getmove():
 # main
 #-----------------------------------------
 def predict(fen, model, turn=False):
-  # turn = flase(black) true(white)
   board = chess.Board(fen)
   board.turn = turn # use fen later
-
   tmp = (0, '')
-  for legal in board.legal_moves:
-    board_tmp = chess.Board(board.fen())
+  for legal in board.pseudo_legal_moves:
+    board_tmp = chess.Board(fen)
+    board_tmp.turn = turn # use fen later
     board_tmp.push(legal)
+    int_turn = 1 if turn else 0
 
-    predicted = (model.predict(np.array([convert_fen_label(fen) + convert_fen_label(board_tmp.fen())])).tolist()[0][1], legal)
+    predicted = (model.predict(np.array([convert_fen_label(fen) + convert_fen_label(board_tmp.fen()) + [int_turn]])).tolist()[0][1], legal)
+    #print(model.predict(np.array([convert_fen_label(fen) + convert_fen_label(board_tmp.fen())])).tolist())
     if predicted[0] > tmp[0]:
       tmp = predicted
 
@@ -71,12 +72,11 @@ if __name__ == "__main__":
 
   if args.standard_test:
     model = load_model('model/' + args.standard_test[0] + '.h5')
-
-    print(predict('rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1', model)[1])
-    print(predict('rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2', model)[1])
-    print(predict('rnbqkbnr/pppp1ppp/8/4p3/4P3/5P2/PPPP2PP/RNBQKBNR b KQkq - 0 2', model)[1])
-    print(predict('rnbqkbnr/pppp2pp/5p2/4p3/4P3/5P2/PPPP2PP/RNBQKBNR w KQkq - 0 3', model)[1])
-    print(predict('rnbqkbnr/pppp2pp/5p2/4p3/4PP2/8/PPPP2PP/RNBQKBNR b KQkq - 0 3', model)[1])
+    print(predict('rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1', model, False)[1])
+    print(predict('rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2', model, True)[1])
+    print(predict('rnbqkbnr/pppp1ppp/8/4p3/4P3/5P2/PPPP2PP/RNBQKBNR b KQkq - 0 2', model, False)[1])
+    print(predict('rnbqkbnr/pppp2pp/5p2/4p3/4P3/5P2/PPPP2PP/RNBQKBNR w KQkq - 0 3', model, True)[1])
+    print(predict('rnbqkbnr/pppp2pp/5p2/4p3/4PP2/8/PPPP2PP/RNBQKBNR b KQkq - 0 3', model, False)[1])
 
   if args.play_game:
     model = load_model('model/' + args.play_game[0] + '.h5')
