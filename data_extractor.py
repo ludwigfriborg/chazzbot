@@ -79,7 +79,7 @@ def get_training_data(file_name):
       print('<{0}> Number of games analyzed: {1}/{2} ({3}%)'.format(file_name, progress, num_of_games, int(100*progress/num_of_games)), end='\r')
     progress += 1
     for move in game.main_line():
-      tmp_board=board
+      tmp_board=board.copy()
 
       item = {}
       item['board'] = convert_fen_label(str(board.fen()))

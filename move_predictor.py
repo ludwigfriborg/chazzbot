@@ -9,7 +9,8 @@ import chess
 from flask import Flask, request, Response
 
 from data_extractor import convert_fen_label
-from train_network_generator import train_network
+from train_network import train_network
+#from train_network_generator import train_network
 from keras.models import Sequential, load_model
 
 # Just disables the warning, doesn't enable AVX/FMA
@@ -30,7 +31,7 @@ def getmove():
   if not c_model:
     c_model = load_model('model/' + current_model + '.h5')
 
-  move = predict(fen + ' w - - 0 0', c_model, True) # look into fen additional params
+  move = predict(fen + ' b - - 0 0', c_model, False) # look into fen additional params
 
   res = Response(json.dumps([{"move": move[0], "explination": move[1]}]),  mimetype='application/json')
   res.headers['Access-Control-Allow-Origin'] = '*'
@@ -44,7 +45,7 @@ def predict(fen, model, turn=False):
   board = chess.Board(fen)
   board.turn = turn # use fen later
   tmp = (0, '')
-  for legal in board.pseudo_legal_moves:
+  for legal in board.legal_moves:
     board_tmp = chess.Board(fen)
     board_tmp.turn = turn # use fen later
     board_tmp.push(legal)
@@ -52,7 +53,8 @@ def predict(fen, model, turn=False):
 
     predicted = (model.predict(np.array([convert_fen_label(fen) + convert_fen_label(board_tmp.fen()) + [int_turn]])).tolist()[0][1], legal)
     #print(model.predict(np.array([convert_fen_label(fen) + convert_fen_label(board_tmp.fen())])).tolist())
-    if predicted[0] > tmp[0]:
+    print(predicted)
+    if predicted[0] >= tmp[0]:
       tmp = predicted
 
   move = tmp[1]

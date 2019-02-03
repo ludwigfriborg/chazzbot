@@ -63,18 +63,21 @@ def return_training_data(file_name, batch_size, point):
 
 # should add training function and so on
 def train_network(model_name):
-  epochs = 1
-  batch_size = 600
   number_of_files = 1
+  epochs = 10
+  batch_size = 2000
+  samples_per_epoch = 200
+  validation_steps = 100
+  evaluate_samples_per_epoch = 200
 
   model_filepath = "model/" + model_name + ".h5"
 
   tbCallBack = keras.callbacks.TensorBoard(log_dir='./Graph/' + model_name, histogram_freq=0, write_graph=True, write_images=True)
-  checkpointCallBack=ModelCheckpoint(model_filepath, monitor='val_loss', verbose=1, save_best_only=True, mode='min')
+  checkpointCallBack=ModelCheckpoint(model_filepath, monitor='val_acc', verbose=1, save_best_only=True, mode='max')
 
   model = model_creator()
-  model.fit_generator(get_training_data(batch_size), epochs=epochs, samples_per_epoch=270, callbacks=[checkpointCallBack], validation_data=get_training_data(batch_size), validation_steps=10)
-  loss_and_metrics = model.evaluate_generator(get_training_data(batch_size), steps=40, verbose=0)
+  model.fit_generator(get_training_data(batch_size), epochs=epochs, samples_per_epoch=samples_per_epoch, callbacks=[checkpointCallBack], validation_data=get_training_data(batch_size), validation_steps=validation_steps)
+  loss_and_metrics = model.evaluate_generator(get_training_data(batch_size), steps=evaluate_samples_per_epoch, verbose=0)
   print(loss_and_metrics)
   print(model.metrics_names[1] + ": " + str(loss_and_metrics[1] * 100))
 

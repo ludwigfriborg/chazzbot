@@ -39,7 +39,6 @@ def get_training_data(number_of_files):
     print(str(count) + "/" + str(number_of_files) + ": " + file_name)
     #splice in data here not only latest file
     boards_n, moves_n = return_training_data(file_name)
-    print(boards_n.shape)
     boards = np.vstack((boards, boards_n))
     moves = np.vstack((moves, moves_n))
 
@@ -70,9 +69,9 @@ def home_made_train_test_split(x, y, test_size=0.25):
 
 # should add training function and so on
 def train_network(model_name):
-  epochs = 1
+  epochs = 10
   batch_size = 400
-  number_of_files = 1
+  number_of_files = 90
 
   X, Y = get_training_data(number_of_files)
   model_filepath = "model/" + model_name + ".h5"
