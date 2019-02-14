@@ -55,17 +55,16 @@ def return_training_data(file_name, batch_size, point):
       Y = []
       data = json.load(file)
       for x in data[point:point+batch_size]:
-        tmp = x['board'] + x['move'] + [x['turn']]
+        tmp = x['board'] + x['move']
         X.append(tmp)
-        Y.append([1 - x['winning'], x['winning']])
+        Y.append([x['winning']])
 
       return np.array(X), np.array(Y)
 
 # should add training function and so on
 def train_network(model_name):
-  number_of_files = 1
   epochs = 10
-  batch_size = 2000
+  batch_size = 750
   samples_per_epoch = 200
   validation_steps = 100
   evaluate_samples_per_epoch = 200

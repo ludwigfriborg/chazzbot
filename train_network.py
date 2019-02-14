@@ -18,8 +18,8 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint
 #get all data from files
 #need to use GENERATOR
 def get_training_data(number_of_files):
-  boards = np.empty([0, 131])
-  moves = np.empty([0, 2])
+  boards = np.empty([0, 128])
+  moves = np.empty([0, 1])
 
   print("loading files...")
   count = 0
@@ -51,9 +51,9 @@ def return_training_data(file_name):
       Y = []
       data = json.load(file)
       for x in data:
-        tmp = x['board'] + x['move'] + [x['turn']]
+        tmp = x['board'] + x['move']
         X.append(tmp)
-        Y.append([1 - x['winning'], x['winning']])
+        Y.append([x['winning']])
 
       return np.array(X), np.array(Y)
 

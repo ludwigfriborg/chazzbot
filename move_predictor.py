@@ -51,7 +51,7 @@ def predict(fen, model, turn=False):
     board_tmp.push(legal)
     int_turn = 1 if turn else 0
 
-    predicted = (model.predict(np.array([convert_fen_label(fen) + convert_fen_label(board_tmp.fen()) + [int_turn]])).tolist()[0][1], legal)
+    predicted = (model.predict(np.array([convert_fen_label(fen, turn) + convert_fen_label(board_tmp.fen(), turn))), legal)
     #print(model.predict(np.array([convert_fen_label(fen) + convert_fen_label(board_tmp.fen())])).tolist())
     print(predicted)
     if predicted[0] >= tmp[0]:

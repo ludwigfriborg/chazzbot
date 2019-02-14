@@ -17,7 +17,7 @@ def split(arr, size):
 # data notation
 # { board: labels, fen: FEn board, move: labels, winning: binary }
 
-char_dict = {
+char_dict_w = {
   'p': 1,
   'r': 2,
   'n': 3,
@@ -33,27 +33,46 @@ char_dict = {
   'K': 13,
   'B': 14,
 }
+char_dict_b = {
+  'p': 8,
+  'r': 9,
+  'n': 10,
+  'b': 11,
+  'q': 12,
+  'k': 13,
+  'b': 14,
+  'P': 1,
+  'R': 2,
+  'N': 3,
+  'B': 4,
+  'Q': 5,
+  'K': 6,
+  'B': 7,
+}
 
 
 def convert_fen_label(fen):
   parts = fen.split(' ')
-  board = fill_fen_board(parts[0])
-  # return board as array
-  # black or white
-  board.append(1 if parts[1] == 'w' else 0)
+  board = fill_fen_board(parts[0], 1 if parts[1] == 'w' else 0)
 
   return board
 
-def fill_fen_board(b):
+def fill_fen_board(b, t):
   rows = b.split('/')
   letters = []
   for row in rows:
     for char in list(row):
       if char.isalpha():
         #letters.append(char_dict[char]/len(char_dict)) # normaize
-        letters.append(char_dict[char])
+        if t:
+          letters.append(char_dict_w[char])
+        else:
+          letters.append(char_dict_b[char])
       else:
         [letters.append(0) for x in range(0, int(char))]
+
+  if not t:
+    letters = reversed(letters)
 
   return letters
 
