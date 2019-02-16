@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import chess
 import chess.pgn
 import json
@@ -72,7 +73,7 @@ def fill_fen_board(b, t):
         [letters.append(0) for x in range(0, int(char))]
 
   if not t:
-    letters = reversed(letters)
+    letters.reverse()
 
   return letters
 
@@ -107,7 +108,6 @@ def get_training_data(file_name):
 
       # make move and save it as board gives move
       board.push(move)
-      move = board.peek()
       item['move'] = convert_fen_label(str(board.fen()))
 
       item['winning'] = 1
@@ -124,12 +124,11 @@ def get_training_data(file_name):
 
       item1 = {}
       item1['turn'] = 1 if tmp_board.turn else 0
-      tmp_board.push(move)
-      move = tmp_board.peek()
+      item1['board'] = convert_fen_label(str(tmp_board.fen()))
+      item1['fen'] = str(tmp_board.fen())
 
-      item1['board'] = convert_fen_label(str(board.fen()))
-      item1['fen'] = str(board.fen())
-      item1['move'] = convert_fen_label(str(board.fen()))[:65]
+      tmp_board.push(move)
+      item1['move'] = convert_fen_label(str(tmp_board.fen()))
       item1['winning'] = 0
       data.append(item1)
 

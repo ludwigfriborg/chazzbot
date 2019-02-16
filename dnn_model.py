@@ -18,18 +18,16 @@ def model_creator():
     activation="relu",
     input_dim=131))
   model.add(Dropout(0.5))
-  model.add(Dense(units=2048, activation='relu'))
+  model.add(Dense(units=1024, activation='relu', kernel_initializer='normal'))
   model.add(Dropout(0.2))
-  model.add(Dense(units=2048, activation='relu'))
+  model.add(Dense(units=1024, activation='relu', kernel_initializer='normal'))
   model.add(Dropout(0.2))
-  model.add(Dense(units=2048, activation='relu'))
-  model.add(Dropout(0.2))
-  model.add(Dense(units=512, activation='relu'))
+  model.add(Dense(units=512, activation='relu', kernel_initializer='normal'))
   model.add(Dense(units=1, activation="sigmoid")) #sigmoid might not be the very best
   #keras.activations.softmax(x, axis=-1)
 
   opt = Adam(lr=0.001)
-  model.compile(loss=losses.mean_absolute_error,
+  model.compile(loss=losses.binary_crossentropy,
                 optimizer=opt,
-                metrics=['accuracy', 'mse'])
+                metrics=['accuracy'])
   return model

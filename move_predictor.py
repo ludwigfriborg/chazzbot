@@ -9,8 +9,8 @@ import chess
 from flask import Flask, request, Response
 
 from data_extractor import convert_fen_label
-from train_network import train_network
-#from train_network_generator import train_network
+#from train_network import train_network
+from train_network_generator import train_network
 from keras.models import Sequential, load_model
 
 # Just disables the warning, doesn't enable AVX/FMA
@@ -50,10 +50,12 @@ def predict(fen, model, turn=False):
     board_tmp.turn = turn # use fen later
     board_tmp.push(legal)
     int_turn = 1 if turn else 0
-
-    predicted = (model.predict(np.array([convert_fen_label(fen, turn) + convert_fen_label(board_tmp.fen(), turn))), legal)
+    input_thing = [convert_fen_label(fen) + convert_fen_label(board_tmp.fen())]
+    predicted = (model.predict(np.array(input_thing)), legal)
+    
     #print(model.predict(np.array([convert_fen_label(fen) + convert_fen_label(board_tmp.fen())])).tolist())
     print(predicted)
+    
     if predicted[0] >= tmp[0]:
       tmp = predicted
 
