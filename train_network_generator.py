@@ -21,6 +21,7 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint
 def get_training_data(batch_size):
   print("loading files...")
   count = 0
+  data = {}
 
   #find all files
   file_names = os.listdir("./ext")
@@ -30,52 +31,64 @@ def get_training_data(batch_size):
   while len(file_names):
     if pop_new:
       file_name = file_names.pop()
+      file_extension = os.path.splitext(file_name)[1]
+      if file_extension != '.json':
+        pop_new = True
+        continue
       count = 0
       print('   ' + file_name, end='\r')
       pop_new = False
 
-    filename, file_extension = os.path.splitext(file_name)
-    if file_extension != '.json':
-      pop_new = True
-      continue
+      with open("ext/" + file_name, "r") as file:
+        data = json.load(file)
 
     #splice in data here not only latest file
-    x, y = return_training_data(file_name, batch_size, count)
+    x, y = return_training_data(batch_size, count, data)
     if len(x) < batch_size:
       pop_new = True
       continue
     yield x, y
 
     count += batch_size
+
+    if not len(file_names):
+      file_names = os.listdir("./ext")
+      shuffle(file_names)
   print('woh')
 
-def return_training_data(file_name, batch_size, point):
-    with open("ext/" + file_name, "r") as file:
-      X = []
-      Y = []
-      data = json.load(file)
-      for x in data[point:point+batch_size]:
-        tmp = x['board'] + x['move']
-        X.append(tmp)
-        Y.append([x['winning']])
+def return_training_data(batch_size, point, data):
+  X = []
+  Y = []
+  for x in data[point:point+batch_size]:
+    tmp = np.concatenate((x['board'], x['move']), axis=0)
+    X.append(tmp)
+    Y.append([x['winning']])
 
-      return np.array(X), np.array(Y)
+  return np.array(X), np.array(Y)
 
 # should add training function and so on
 def train_network(model_name):
-  epochs = 35 # try this next
-  batch_size = 1000
-  samples_per_epoch = 500
-  validation_steps = 10
-  evaluate_samples_per_epoch = 50
+  # Data set total size: ~16 000 000, (now ~32 000 000)
+  epochs = 25
+  batch_size = 256
+  samples_per_epoch = 62500 # 125 000 for one epoch
+  validation_steps = 200
+  evaluate_samples_per_epoch = 100
 
   model_filepath = "model/" + model_name + ".h5"
 
   tbCallBack = keras.callbacks.TensorBoard(log_dir='./Graph/' + model_name, histogram_freq=0, write_graph=True, write_images=True)
   checkpointCallBack=ModelCheckpoint(model_filepath, monitor='acc', verbose=1, save_best_only=True, mode='max')
 
-  model = model_creator()
-  model.fit_generator(get_training_data(batch_size), epochs=epochs, steps_per_epoch=samples_per_epoch, callbacks=[checkpointCallBack], validation_data=get_training_data(batch_size), validation_steps=validation_steps)
+  try:
+    model = load_model(model_filepath)
+    print('Loaded prevoisly saved model')
+  except:
+    model = model_creator()
+    print('Created new model')
+
+
+  model.fit_generator(get_training_data(batch_size), epochs=epochs, steps_per_epoch=samples_per_epoch, callbacks=[checkpointCallBack, tbCallBack], validation_data=get_training_data(batch_size), validation_steps=validation_steps)
   loss_and_metrics = model.evaluate_generator(get_training_data(batch_size), steps=evaluate_samples_per_epoch, verbose=0)
   print(loss_and_metrics)
   print(model.metrics_names[1] + ": " + str(loss_and_metrics[1] * 100))

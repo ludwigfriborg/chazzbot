@@ -28,6 +28,8 @@ def getmove():
 
   request.get_json(force=True)
   fen = str(request.json['fen'])
+  gotten_move = str(request.json['move'])
+  
   if not c_model:
     c_model = load_model('model/' + current_model + '.h5')
 
@@ -41,26 +43,60 @@ def getmove():
 #-----------------------------------------
 # main
 #-----------------------------------------
+def predict_depth(board, model, depth=1):
+  '''
+  Searches for the best move further down in the search tree
+  The depth defines how far the search tree will be searched
+  Returns an accumilated prediction score.
+
+  note: increasing depth seriously improves performance of 
+  estimations but increases the prediction time drastically
+  '''
+  tmp = 0
+
+  if depth <= 0:
+    return 0
+
+  for legal in board.legal_moves:
+    board_tmp = board.copy()
+    board_tmp.push(legal)
+    input_thing = [convert_fen_label(board.fen()) + convert_fen_label(board_tmp.fen())]
+    predicted = model.predict(np.array(input_thing))
+    predicted = predicted + predict_depth(board_tmp, model, depth=depth-1)
+    
+    if predicted >= tmp:
+      tmp = predicted
+
+  return tmp
+
 def predict(fen, model, turn=False):
+  '''
+  Given keras model and fennotation, and turn: returns the best
+  scoring move as well as a descriptive text.
+  '''
   board = chess.Board(fen)
   board.turn = turn # use fen later
   tmp = (0, '')
+
+  # For first level save also actual move
   for legal in board.legal_moves:
     board_tmp = chess.Board(fen)
     board_tmp.turn = turn # use fen later
     board_tmp.push(legal)
-    int_turn = 1 if turn else 0
-    input_thing = [convert_fen_label(fen) + convert_fen_label(board_tmp.fen())]
-    predicted = (model.predict(np.array(input_thing)), legal)
     
-    #print(model.predict(np.array([convert_fen_label(fen) + convert_fen_label(board_tmp.fen())])).tolist())
+    input_thing = [convert_fen_label(fen) + convert_fen_label(board_tmp.fen())]
+    pscore = model.predict(np.array(input_thing))
+
+    # Find accumulated score
+    predicted = (pscore + predict_depth(board_tmp, model, depth=1), legal)
+    
     print(predicted)
     
     if predicted[0] >= tmp[0]:
       tmp = predicted
 
   move = tmp[1]
-  return str(move), 'Predicted move: ' + str(move) + '. With actual prediction being: ' + str(tmp[0])
+  return str(move), 'Predicted move: ' + str(move) + '. With accumulated prediction being: ' + str(tmp[0][0][0])
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description='Chezzbot, chess move predictor using a regular feed forward network!')
@@ -85,7 +121,6 @@ if __name__ == "__main__":
   if args.play_game:
     model = load_model('model/' + args.play_game[0] + '.h5')
 
-    #using python chess play five chess moves
     current_board = chess.Board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
     count = 0
 

@@ -144,9 +144,10 @@ if __name__ == "__main__":
 
   success_count = 0
   all_data = []
-  chunk_move = 50000 #how many moves per file
+  chunk_move = 500000 #how many moves per file
   index_num = 0
   setname = 'value'
+  print(len(file_names))
 
   for file_n in file_names:
     try:
@@ -159,7 +160,7 @@ if __name__ == "__main__":
 
       all_data = []
       success_count += 1
-      if success_count > (len(file_names)/2):
+      if success_count > (len(file_names)):
         break
 
     except Exception as e:
