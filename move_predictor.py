@@ -29,12 +29,18 @@ def getmove():
   request.get_json(force=True)
   fen = str(request.json['fen'])
   
+  board = chess.Board(fen + ' b - - 0 0')
+  board.turn = False # use fen later
+  board.castling_rights = True
+
   if not c_model:
     c_model = load_model('model/' + current_model + '.h5')
 
   move = predict(fen + ' b - - 0 0', c_model, False) # look into fen additional params
+  
+  board.push(chess.Move.from_uci(move[0]))
 
-  res = Response(json.dumps([{"move": move[0], "explination": move[1]}]),  mimetype='application/json')
+  res = Response(json.dumps([{"fen": board.fen(), "move": move[0], "explination": move[1]}]),  mimetype='application/json')
   res.headers['Access-Control-Allow-Origin'] = '*'
   return res
 
@@ -42,16 +48,16 @@ def getmove():
 #-----------------------------------------
 # main
 #-----------------------------------------
-def predict_depth(board, model, depth=1):
+def predict_depth(board, model, depth=1, t=False):
   '''
   Searches for the best move further down in the search tree
   The depth defines how far the search tree will be searched
-  Returns an accumilated prediction score.
+  Returns an prediction score.
 
   note: increasing depth seriously improves performance of 
   estimations but increases the prediction time drastically
   '''
-  tmp = 0
+  tmp = 1 if t else 0
 
   if depth <= 0:
     return 0
@@ -61,11 +67,12 @@ def predict_depth(board, model, depth=1):
     board_tmp.push(legal)
     input_thing = [convert_fen_label(board.fen()) + convert_fen_label(board_tmp.fen())]
     predicted = model.predict(np.array(input_thing))
-    predicted = predicted + predict_depth(board_tmp, model, depth=depth-1)
-    
-    if predicted >= tmp:
-      tmp = predicted
 
+    predicted = predict_depth(board_tmp, model, depth=depth-1, t=not t)
+    
+    if (not t and predicted >= tmp) or (t and tmp <= predicted):
+      tmp = predicted
+    
   return tmp
 
 def predict(fen, model, turn=False):
@@ -87,7 +94,7 @@ def predict(fen, model, turn=False):
     pscore = model.predict(np.array(input_thing))
 
     # Find accumulated score
-    predicted = (pscore + predict_depth(board_tmp, model, depth=1), legal)
+    predicted = (pscore + predict_depth(board_tmp, model, depth=2), legal)
     
     print(predicted)
     

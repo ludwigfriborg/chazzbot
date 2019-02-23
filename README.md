@@ -1,5 +1,5 @@
 # ![](frontend/img/chazzbot.jpeg)Chazzbot
-Chess AI, using a feed-forward neural network as a value function and some simple tree search. Build with Keras and Tensorflow trained on Grandmaster championship games fetched from [https://www.pgnmentor.com/files.html.](https://www.pgnmentor.com/files.html) 
+Chess AI, using a feed-forward neural network as a value function and some simple min max tree search. Build with Keras and Tensorflow trained on Grandmaster championship games fetched from [https://www.pgnmentor.com/files.html.](https://www.pgnmentor.com/files.html) 
 
 The project uses a flask server as an interface.
 

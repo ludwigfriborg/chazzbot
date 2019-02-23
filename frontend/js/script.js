@@ -23,13 +23,11 @@ function getMove(oldPos, newPos) {
       data: JSON.stringify({fen: fen}),
       dataType: "json",
       success: function (response) {
-        var move = response[0].move.slice(0,2) + '-' + response[0].move.slice(2, 4)
-
-        console.log('Got move:', response[0].move)
-        console.log(response[0].explination)
+        var move = response[0].fen
+        console.log(move)
         $('#latest-move').html(response[0].explination)
         make_move = true;
-        board.move(move)
+        board.position(move, false)
         make_move = false;
       },
       error: function (xhr, status) {
