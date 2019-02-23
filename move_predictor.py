@@ -48,7 +48,7 @@ def getmove():
 #-----------------------------------------
 # main
 #-----------------------------------------
-def predict_depth(board, model, depth=1, t=False):
+def predict_depth(score, board, model, depth=1, minimizing=True, a=math.inf, b=-math.inf):
   '''
   Searches for the best move further down in the search tree
   The depth defines how far the search tree will be searched
@@ -57,22 +57,29 @@ def predict_depth(board, model, depth=1, t=False):
   note: increasing depth seriously improves performance of 
   estimations but increases the prediction time drastically
   '''
-  tmp = 1 if t else 0
+  tmp = math.inf if minimizing else -math.inf
 
   if depth <= 0:
-    return 0
+    return score
 
   for legal in board.legal_moves:
     board_tmp = board.copy()
     board_tmp.push(legal)
     input_thing = [convert_fen_label(board.fen()) + convert_fen_label(board_tmp.fen())]
-    predicted = model.predict(np.array(input_thing))
+    s = score + model.predict(np.array(input_thing))
+    predicted = predict_depth(s, board_tmp, model, depth=depth-1, minimizing=not minimizing, a=a, b=b)
+    
+    if (not minimizing):
+      tmp = max(tmp, predicted)
+      a = max(a, tmp)
+      if b <= a:
+        return tmp
 
-    predicted = predict_depth(board_tmp, model, depth=depth-1, t=not t)
-    
-    if (not t and predicted >= tmp) or (t and tmp <= predicted):
-      tmp = predicted
-    
+    if (minimizing):
+      tmp = min(tmp, predicted)
+      b = min(b, tmp)
+      if b <= a:
+        return tmp
   return tmp
 
 def predict(fen, model, turn=False):
@@ -94,11 +101,10 @@ def predict(fen, model, turn=False):
     pscore = model.predict(np.array(input_thing))
 
     # Find accumulated score
-    predicted = (pscore + predict_depth(board_tmp, model, depth=2), legal)
+    predicted = (predict_depth(pscore, board_tmp, model, depth=8), legal)
     
     print(predicted)
-    
-    if predicted[0] >= tmp[0]:
+    if tmp[0] <= predicted[0]:
       tmp = predicted
 
   move = tmp[1]
