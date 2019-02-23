@@ -28,7 +28,6 @@ def getmove():
 
   request.get_json(force=True)
   fen = str(request.json['fen'])
-  gotten_move = str(request.json['move'])
   
   if not c_model:
     c_model = load_model('model/' + current_model + '.h5')

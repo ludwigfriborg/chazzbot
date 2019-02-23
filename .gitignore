@@ -106,4 +106,6 @@ data/*/
 data/*.pgn
 data/*.zip
 ext/*.json
+ext/*/*.json
+model/*.h5
 Graph/*/
