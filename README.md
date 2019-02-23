@@ -15,3 +15,4 @@ The provided model with the name of "oo.h5" can be used to perform good estimati
 
 - Apply some search algorithm to find the best move quicker.
 - Add some alpha-beta pruning.
+- Add support for casteling and so on for the backend.
