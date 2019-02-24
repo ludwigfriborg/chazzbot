@@ -17,4 +17,7 @@ The provided model with the name of "oo" can be used to perform good estimation.
 
 - [x] Add some alpha-beta pruning.
 
-- [ ] Add support for castling and so on for the back-end.
+- [x] Add support for castling and so on for the back-end.
+
+- [ ] Improve the min max tree
+- [ ] Improve the neural network accuracy

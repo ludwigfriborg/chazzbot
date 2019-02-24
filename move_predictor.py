@@ -27,18 +27,22 @@ def getmove():
   global c_model
 
   request.get_json(force=True)
+  move = str(request.json['move'])
   fen = str(request.json['fen'])
-  
-  board = chess.Board(fen + ' b - - 0 0')
-  board.turn = False # use fen later
+
+  board = chess.Board(fen + ' w - - 0 0')
+  board.turn = True # use fen later
   board.castling_rights = True
+  move = (move, 'invalid')
 
-  if not c_model:
-    c_model = load_model('model/' + current_model + '.h5')
+  if chess.Move.from_uci(move[0]) in board.pseudo_legal_moves or board.is_castling(chess.Move.from_uci(move[0])):
+    board.push(chess.Move.from_uci(move[0]))
 
-  move = predict(fen + ' b - - 0 0', c_model, False) # look into fen additional params
-  
-  board.push(chess.Move.from_uci(move[0]))
+    if not c_model:
+      c_model = load_model('model/' + current_model + '.h5')
+
+    move = predict(board.fen(), c_model, False) # look into fen additional params
+    board.push(chess.Move.from_uci(move[0]))  
 
   res = Response(json.dumps([{"fen": board.fen(), "move": move[0], "explination": move[1]}]),  mimetype='application/json')
   res.headers['Access-Control-Allow-Origin'] = '*'
@@ -66,8 +70,12 @@ def predict_depth(score, board, model, depth=1, minimizing=True, a=math.inf, b=-
     board_tmp = board.copy()
     board_tmp.push(legal)
     input_thing = [convert_fen_label(board.fen()) + convert_fen_label(board_tmp.fen())]
-    s = score + model.predict(np.array(input_thing))
-    predicted = predict_depth(s, board_tmp, model, depth=depth-1, minimizing=not minimizing, a=a, b=b)
+    if minimizing:
+      pscore = score + (1 - model.predict(np.array(input_thing)))
+    else:
+      pscore = score + model.predict(np.array(input_thing))
+
+    predicted = predict_depth(pscore, board_tmp, model, depth=depth-1, minimizing=not minimizing, a=a, b=b)
     
     if (not minimizing):
       tmp = max(tmp, predicted)
