@@ -61,10 +61,7 @@ def return_training_data(batch_size, point, data):
   X = []
   Y = []
   for x in data[point:point+batch_size]:
-    # convolutional
     tmp = reshape_moves(x['board'], x['move'])
-    # linear
-    #tmp = np.concatenate((x['board'], x['move']), axis=0)
     X.append(tmp)
     Y.append([x['winning']])
 
@@ -78,17 +75,18 @@ def train_network(model_name):
   samples_per_epoch = 125000 # 125 000 for one epoch
   validation_steps = 200
   evaluate_samples_per_epoch = 100
+  logging_freq = 50000 # number of samples
 
   model_filepath = "model/" + model_name + ".h5"
 
-  tbCallBack = keras.callbacks.TensorBoard(log_dir='./Graph/' + model_name, histogram_freq=0, write_graph=True, write_images=True)
+  tbCallBack = keras.callbacks.TensorBoard(log_dir='./Graph/' + model_name, histogram_freq=0, write_graph=True, write_images=True, update_freq=logging_freq)
   checkpointCallBack=ModelCheckpoint(model_filepath, monitor='acc', verbose=1, save_best_only=True, mode='max')
 
   try:
     model = load_model(model_filepath)
     print('Loaded prevoisly saved model')
   except:
-    model = model_creator_cnn()
+    model = model_creator()
     print('Created new model')
 
 

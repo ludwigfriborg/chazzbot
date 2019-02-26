@@ -55,9 +55,10 @@ char_dict_b = {
 
 def reshape_moves(board, move):
   # linear
-  # return np.concatenate((board, move), axis=0)
+  return np.concatenate((board, move), axis=0)
   # convolutional
-  return np.reshape(np.concatenate((board, move), axis=0), (8,8,2))
+  #print(np.reshape(np.concatenate((np.reshape(board, (8,8)), np.reshape(move, (8,8))), axis=0), (16, 8, 1)).shape)
+  # return np.reshape(np.concatenate((np.reshape(board, (8,8)), np.reshape(move, (8,8))), axis=0), (16, 8, 1))
 
 def convert_fen_label(fen):
   parts = fen.split(' ')
