@@ -5,6 +5,7 @@ import json
 from io import StringIO
 import os
 import random
+import numpy as np
 
 def split(arr, size):
     arrs = []
@@ -52,6 +53,12 @@ char_dict_b = {
 }
 
 
+def reshape_moves(board, move):
+  # linear
+  # return np.concatenate((board, move), axis=0)
+  # convolutional
+  return np.reshape(np.concatenate((board, move), axis=0), (8,8,2))
+
 def convert_fen_label(fen):
   parts = fen.split(' ')
   board = fill_fen_board(parts[0], 1 if parts[1] == 'w' else 0)
@@ -77,7 +84,7 @@ def fill_fen_board(b, t):
 
   return letters
 
-def get_training_data(file_name):
+def get_training_data(file_name, num_files=0, this_file=0):
   file = open("data/pgn_a_l/" + file_name + ".pgn").read()
 
   #load games
@@ -96,7 +103,7 @@ def get_training_data(file_name):
     board = game.board()
 
     if progress % 10 == 0:
-      print('<{0}> Number of games analyzed: {1}/{2} ({3}%)'.format(file_name, progress, num_of_games, int(100*progress/num_of_games)), end='\r')
+      print('{0}/{1} <{2}> Number of games analyzed: {3}/{4} ({5}%)'.format(this_file, num_files, file_name, progress, num_of_games, int(100*progress/num_of_games)), end='\r')
     progress += 1
     for move in game.main_line():
       tmp_board=board.copy()
@@ -104,7 +111,6 @@ def get_training_data(file_name):
       item = {}
       item['board'] = convert_fen_label(str(board.fen()))
       item['fen'] = str(board.fen())
-      item['turn'] = 1 if board.turn else 0
 
       # make move and save it as board gives move
       board.push(move)
@@ -123,7 +129,6 @@ def get_training_data(file_name):
           break
 
       item1 = {}
-      item1['turn'] = 1 if tmp_board.turn else 0
       item1['board'] = convert_fen_label(str(tmp_board.fen()))
       item1['fen'] = str(tmp_board.fen())
 
@@ -144,14 +149,14 @@ if __name__ == "__main__":
 
   success_count = 0
   all_data = []
-  chunk_move = 500000 #how many moves per file
+  chunk_move = 1000000 #how many moves per file
   index_num = 0
   setname = 'value'
-  print(len(file_names))
+  num_files = len(file_names)
 
-  for file_n in file_names:
+  for file_index, file_n in enumerate(file_names):
     try:
-      all_data = get_training_data(file_n)
+      all_data = get_training_data(file_n, num_files=num_files, this_file=file_index)
 
       for i in range(round(len(all_data)/chunk_move)):
         index_num += 1

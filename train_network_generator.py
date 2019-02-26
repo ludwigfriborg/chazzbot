@@ -5,7 +5,8 @@ import json
 import os
 from random import shuffle
 
-from dnn_model import model_creator
+from dnn_model import model_creator, model_creator_cnn
+from data_extractor import reshape_moves
 
 from sklearn.model_selection import train_test_split
 from keras.models import Sequential, load_model
@@ -60,7 +61,10 @@ def return_training_data(batch_size, point, data):
   X = []
   Y = []
   for x in data[point:point+batch_size]:
-    tmp = np.concatenate((x['board'], x['move']), axis=0)
+    # convolutional
+    tmp = reshape_moves(x['board'], x['move'])
+    # linear
+    #tmp = np.concatenate((x['board'], x['move']), axis=0)
     X.append(tmp)
     Y.append([x['winning']])
 
@@ -71,7 +75,7 @@ def train_network(model_name):
   # Data set total size: ~16 000 000, (now ~32 000 000)
   epochs = 25
   batch_size = 256
-  samples_per_epoch = 62500 # 125 000 for one epoch
+  samples_per_epoch = 125000 # 125 000 for one epoch
   validation_steps = 200
   evaluate_samples_per_epoch = 100
 
@@ -84,7 +88,7 @@ def train_network(model_name):
     model = load_model(model_filepath)
     print('Loaded prevoisly saved model')
   except:
-    model = model_creator()
+    model = model_creator_cnn()
     print('Created new model')
 
 
@@ -94,3 +98,10 @@ def train_network(model_name):
   print(model.metrics_names[1] + ": " + str(loss_and_metrics[1] * 100))
 
   model.save(model_filepath)
+
+def evaluate_model(model):
+  evaluate_samples_per_epoch = 100
+  batch_size = 256
+  loss_and_metrics = model.evaluate_generator(get_training_data(batch_size), steps=evaluate_samples_per_epoch, verbose=0)
+  print(loss_and_metrics)
+  print(model.metrics_names[1] + ": " + str(loss_and_metrics[1] * 100))
