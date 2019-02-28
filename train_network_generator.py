@@ -41,7 +41,11 @@ def get_training_data(batch_size):
       pop_new = False
 
       with open("ext/" + file_name, "r") as file:
-        data = json.load(file)
+        try:
+          data = json.load(file)
+        except:
+          print('Excepted')
+          pop_new = True
 
     #splice in data here not only latest file
     x, y = return_training_data(batch_size, count, data)
@@ -52,7 +56,8 @@ def get_training_data(batch_size):
 
     count += batch_size
 
-    if not len(file_names):
+    if len(file_names) == 0:
+      print('Out')
       file_names = os.listdir("./ext")
       shuffle(file_names)
   print('woh')
@@ -61,26 +66,26 @@ def return_training_data(batch_size, point, data):
   X = []
   Y = []
   for x in data[point:point+batch_size]:
-    tmp = reshape_moves(x['board'], x['move'])
-    X.append(tmp)
-    Y.append([x['winning']])
+    X.append(x[:-1]) # first are move data
+    Y.append([x[-1]]) #last spot is score
 
   return np.array(X), np.array(Y)
 
 # should add training function and so on
 def train_network(model_name):
-  # Data set total size: ~16 000 000, (now ~32 000 000)
+  # Data set total size: ~32 000 000
   epochs = 25
-  batch_size = 256
-  samples_per_epoch = 125000 # 125 000 for one epoch
+  batch_size = 512
+  samples_per_epoch = 4096 # 125 000 for one epoch
   validation_steps = 200
   evaluate_samples_per_epoch = 100
   logging_freq = 50000 # number of samples
 
   model_filepath = "model/" + model_name + ".h5"
 
-  tbCallBack = keras.callbacks.TensorBoard(log_dir='./Graph/' + model_name, histogram_freq=0, write_graph=True, write_images=True, update_freq=logging_freq)
-  checkpointCallBack=ModelCheckpoint(model_filepath, monitor='acc', verbose=1, save_best_only=True, mode='max')
+  callbacks = []
+  callbacks.append(keras.callbacks.TensorBoard(log_dir='./Graph/' + model_name, histogram_freq=0, write_graph=True, write_images=True, update_freq=logging_freq))
+  callbacks.append(ModelCheckpoint(model_filepath, monitor='acc', verbose=1, save_best_only=True, mode='max'))
 
   try:
     model = load_model(model_filepath)
@@ -90,7 +95,7 @@ def train_network(model_name):
     print('Created new model')
 
 
-  model.fit_generator(get_training_data(batch_size), epochs=epochs, steps_per_epoch=samples_per_epoch, callbacks=[checkpointCallBack, tbCallBack], validation_data=get_training_data(batch_size), validation_steps=validation_steps)
+  model.fit_generator(get_training_data(batch_size), epochs=epochs, steps_per_epoch=samples_per_epoch, callbacks=callbacks, validation_data=get_training_data(batch_size), validation_steps=validation_steps)
   loss_and_metrics = model.evaluate_generator(get_training_data(batch_size), steps=evaluate_samples_per_epoch, verbose=0)
   print(loss_and_metrics)
   print(model.metrics_names[1] + ": " + str(loss_and_metrics[1] * 100))

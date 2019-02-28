@@ -16,9 +16,6 @@ def split(arr, size):
     arrs.append(arr)
     return arrs
 
-# data notation
-# { board: labels, fen: FEn board, move: labels, winning: binary }
-
 char_dict_w = {
   'p': 1,
   'r': 2,
@@ -27,22 +24,22 @@ char_dict_w = {
   'q': 5,
   'k': 6,
   'b': 7,
-  'P': 8,
-  'R': 9,
-  'N': 10,
-  'B': 11,
-  'Q': 12,
-  'K': 13,
-  'B': 14,
+  'P': -1,
+  'R': -2,
+  'N': -3,
+  'B': -4,
+  'Q': -5,
+  'K': -6,
+  'B': -7,
 }
 char_dict_b = {
-  'p': 8,
-  'r': 9,
-  'n': 10,
-  'b': 11,
-  'q': 12,
-  'k': 13,
-  'b': 14,
+  'p': -1,
+  'r': -2,
+  'n': -3,
+  'b': -4,
+  'q': -5,
+  'k': -6,
+  'b': -7,
   'P': 1,
   'R': 2,
   'N': 3,
@@ -54,25 +51,22 @@ char_dict_b = {
 
 
 def reshape_moves(board, move):
-  # linear
-  return np.concatenate((board, move), axis=0)
-  # convolutional
-  #print(np.reshape(np.concatenate((np.reshape(board, (8,8)), np.reshape(move, (8,8))), axis=0), (16, 8, 1)).shape)
-  # return np.reshape(np.concatenate((np.reshape(board, (8,8)), np.reshape(move, (8,8))), axis=0), (16, 8, 1))
+  return np.concatenate(board).tolist() + np.concatenate(move).tolist()
 
 def convert_fen_label(fen):
   parts = fen.split(' ')
   board = fill_fen_board(parts[0], 1 if parts[1] == 'w' else 0)
 
-  return board
+  return indivualize_board(board)
 
 def fill_fen_board(b, t):
   rows = b.split('/')
+  if not t:
+    rows.reverse()
   letters = []
   for row in rows:
     for char in list(row):
       if char.isalpha():
-        #letters.append(char_dict[char]/len(char_dict)) # normaize
         if t:
           letters.append(char_dict_w[char])
         else:
@@ -80,10 +74,17 @@ def fill_fen_board(b, t):
       else:
         [letters.append(0) for x in range(0, int(char))]
 
-  if not t:
-    letters.reverse()
-
   return letters
+
+# individual labels
+def indivualize_board(board):
+  board_indivualized = np.zeros((7, 64), dtype=int)
+  for i, piece in enumerate(board):
+    if piece < 0:
+      board_indivualized[-1*piece-1][i] = -1
+    else:
+      board_indivualized[piece-1][i] = 1
+  return board_indivualized.tolist()
 
 def get_training_data(file_name, num_files=0, this_file=0):
   file = open("data/pgn_a_l/" + file_name + ".pgn").read()
@@ -109,16 +110,12 @@ def get_training_data(file_name, num_files=0, this_file=0):
     for move in game.main_line():
       tmp_board=board.copy()
 
-      item = {}
-      item['board'] = convert_fen_label(str(board.fen()))
-      item['fen'] = str(board.fen())
-
-      # make move and save it as board gives move
+      tmp_b = convert_fen_label(str(board.fen()))
       board.push(move)
-      item['move'] = convert_fen_label(str(board.fen()))
+      move = reshape_moves(tmp_b, convert_fen_label(str(board.fen())))
+      move.append(1) # this is winning move
 
-      item['winning'] = 1
-      data.append(item)
+      data.append(move)
 
       #random move
       #for generating winning predictor
@@ -129,14 +126,11 @@ def get_training_data(file_name, num_files=0, this_file=0):
         if count < 0:
           break
 
-      item1 = {}
-      item1['board'] = convert_fen_label(str(tmp_board.fen()))
-      item1['fen'] = str(tmp_board.fen())
-
+      tmp_b1 = convert_fen_label(str(tmp_board.fen()))
       tmp_board.push(move)
-      item1['move'] = convert_fen_label(str(tmp_board.fen()))
-      item1['winning'] = 0
-      data.append(item1)
+      move1 = reshape_moves(tmp_b1, convert_fen_label(str(tmp_board.fen())))
+      move1.append(0) # this is loosing move
+      data.append(move1)
 
   print('<{0}> Number of games analyzed: {1}/{2} (100%)'.format(file_name, progress, num_of_games))
   return data
@@ -150,12 +144,17 @@ if __name__ == "__main__":
 
   success_count = 0
   all_data = []
-  chunk_move = 1000000 #how many moves per file
+  chunk_move = 50000 #how many moves per file
   index_num = 0
   setname = 'value'
   num_files = len(file_names)
+  skip_count = 12
 
   for file_index, file_n in enumerate(file_names):
+    # skips as many input files.
+    if skip_count > 0:
+      skip_count -= 1
+      continue
     try:
       all_data = get_training_data(file_n, num_files=num_files, this_file=file_index)
 
@@ -166,7 +165,7 @@ if __name__ == "__main__":
 
       all_data = []
       success_count += 1
-      if success_count > (len(file_names)):
+      if success_count > (len(file_names)/4):
         break
 
     except Exception as e:

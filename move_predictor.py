@@ -59,9 +59,9 @@ def getmove():
 #-----------------------------------------
 def scale_pred(pred):
   if pred < 0.25:
-    return 0
-  if pred < 0.5:
     return 1
+  if pred < 0.5:
+    return 2  
   if pred < 0.75:
     return 4
   return 10
@@ -90,7 +90,8 @@ def predict_depth(score, board, model, depth=1, minimizing=True, a_i=math.inf, b
     board_tmp = board.copy()
     board_tmp.push(legal)
     input_thing = reshape_moves(convert_fen_label(board.fen()), convert_fen_label(board_tmp.fen()))
-    pred = model.predict(np.array(input_thing))
+    input_thing = np.array([input_thing])
+    pred = model.predict(input_thing)
 
     if (not minimizing):
       pscore = score + scale_pred(pred)
@@ -120,7 +121,7 @@ def predict(fen, model, turn=False):
   board = chess.Board(fen)
   board.turn = turn # use fen later
   tmp = (-math.inf, '')
-  max_depth = 40
+  max_depth = 16
 
   # For first level save also actual move
   for legal in board.legal_moves:
@@ -128,7 +129,8 @@ def predict(fen, model, turn=False):
     board_tmp.push(legal)
     
     input_thing = reshape_moves(convert_fen_label(fen), convert_fen_label(board_tmp.fen()))
-    pscore = scale_pred(model.predict(np.array(input_thing)))
+    input_thing = np.array([input_thing])
+    pscore = scale_pred(model.predict(input_thing))
 
     # Find accumulated score
     predicted = (predict_depth(pscore, board_tmp, model, depth=max_depth), legal)
@@ -155,11 +157,6 @@ if __name__ == "__main__":
   if args.standard_test:
     model = load_model('model/' + args.standard_test[0] + '.h5')
     evaluate_model(model)
-    #print(predict('rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1', model, False)[1])
-    #print(predict('rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2', model, True)[1])
-    #print(predict('rnbqkbnr/pppp1ppp/8/4p3/4P3/5P2/PPPP2PP/RNBQKBNR b KQkq - 0 2', model, False)[1])
-    #print(predict('rnbqkbnr/pppp2pp/5p2/4p3/4P3/5P2/PPPP2PP/RNBQKBNR w KQkq - 0 3', model, True)[1])
-    #print(predict('rnbqkbnr/pppp2pp/5p2/4p3/4PP2/8/PPPP2PP/RNBQKBNR b KQkq - 0 3', model, False)[1])
 
   if args.play_game:
     model = load_model('model/' + args.play_game[0] + '.h5')
