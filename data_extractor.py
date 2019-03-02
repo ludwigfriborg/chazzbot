@@ -6,6 +6,7 @@ from io import StringIO
 import os
 import random
 import numpy as np
+import math
 
 def split(arr, size):
     arrs = []
@@ -80,6 +81,8 @@ def fill_fen_board(b, t):
 def indivualize_board(board):
   board_indivualized = np.zeros((7, 64), dtype=int)
   for i, piece in enumerate(board):
+    if piece == 0:
+      continue
     if piece < 0:
       board_indivualized[-1*piece-1][i] = -1
     else:
@@ -102,6 +105,10 @@ def get_training_data(file_name, num_files=0, this_file=0):
   for game_as_string in games_as_strings:
     pgn = StringIO('[Event' + game_as_string)
     game = chess.pgn.read_game(pgn)
+    whowon = game.headers['Result']
+    if whowon == '1/2-1/2':
+      continue
+
     board = game.board()
 
     if progress % 10 == 0:
@@ -110,12 +117,22 @@ def get_training_data(file_name, num_files=0, this_file=0):
     for move in game.main_line():
       tmp_board=board.copy()
 
-      tmp_b = convert_fen_label(str(board.fen()))
-      board.push(move)
-      move = reshape_moves(tmp_b, convert_fen_label(str(board.fen())))
-      move.append(1) # this is winning move
+      #print(whowon)
+      win = 1
+      if whowon == '1-0' and tmp_board.turn != True:
+        #continue
+        win = 0
+      elif whowon == '0-1' and tmp_board.turn == True:
+        #continue
+        win = 0
+      if win == 1:
+        tmp_b = convert_fen_label(str(board.fen()))
+        board.push(move)
+        move = reshape_moves(tmp_b, convert_fen_label(str(board.fen())))
+        move.append(win) # this is winning move
+      
 
-      data.append(move)
+        data.append(move)
 
       #random move
       #for generating winning predictor
@@ -148,7 +165,7 @@ if __name__ == "__main__":
   index_num = 0
   setname = 'value'
   num_files = len(file_names)
-  skip_count = 12
+  skip_count = 0
 
   for file_index, file_n in enumerate(file_names):
     # skips as many input files.
@@ -156,16 +173,16 @@ if __name__ == "__main__":
       skip_count -= 1
       continue
     try:
-      all_data = get_training_data(file_n, num_files=num_files, this_file=file_index)
-
-      for i in range(round(len(all_data)/chunk_move)):
+      all_data = get_training_data(file_n, num_files=num_files, this_file=file_index+1)
+      print(len(all_data))
+      for i in range(math.ceil(len(all_data)/chunk_move)):
         index_num += 1
         with open('ext/extracted_data_'+ setname + '_' + str(index_num) + '.json', 'w') as outfile:
           json.dump(all_data[(i)*chunk_move:(i)*chunk_move+chunk_move], outfile)
 
       all_data = []
       success_count += 1
-      if success_count > (len(file_names)/4):
+      if success_count > (len(file_names)):
         break
 
     except Exception as e:

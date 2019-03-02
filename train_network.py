@@ -18,8 +18,8 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint
 #get all data from files
 #need to use GENERATOR
 def get_training_data(number_of_files):
-  boards = np.empty([0, 128])
-  moves = np.empty([0, 1])
+  boards = np.empty([0, 896])
+  win = np.empty([0, 1])
 
   print("loading files...")
   count = 0
@@ -38,12 +38,12 @@ def get_training_data(number_of_files):
 
     print(str(count) + "/" + str(number_of_files) + ": " + file_name)
     #splice in data here not only latest file
-    boards_n, moves_n = return_training_data(file_name)
+    boards_n, win_n = return_training_data(file_name)
     boards = np.vstack((boards, boards_n))
-    moves = np.vstack((moves, moves_n))
+    win = np.vstack((win, win_n))
 
   print("Found " + str(count) + " different files with chess data")
-  return boards, moves
+  return boards, win
 
 def return_training_data(file_name):
     with open("ext/" + file_name, "r") as file:
@@ -51,9 +51,8 @@ def return_training_data(file_name):
       Y = []
       data = json.load(file)
       for x in data:
-        tmp = x['board'] + x['move']
-        X.append(tmp)
-        Y.append([x['winning']])
+        X.append(x[:-1])
+        Y.append([x[-1]])
 
       return np.array(X), np.array(Y)
 
@@ -69,8 +68,8 @@ def home_made_train_test_split(x, y, test_size=0.25):
 
 # should add training function and so on
 def train_network(model_name):
-  epochs = 10
-  batch_size = 400
+  epochs = 1
+  batch_size = 256
   number_of_files = 90
 
   X, Y = get_training_data(number_of_files)
@@ -83,12 +82,20 @@ def train_network(model_name):
 
   tbCallBack = keras.callbacks.TensorBoard(log_dir='./Graph/' + model_name, histogram_freq=0, write_graph=True, write_images=True)
   checkpointCallBack=ModelCheckpoint(model_filepath, monitor='val_acc', verbose=1, save_best_only=True, mode='max')
-  esCallBack = EarlyStopping(monitor='val_acc', patience=5, min_delta=0.0001)
+  #esCallBack = EarlyStopping(monitor='val_acc', patience=5, min_delta=0.0001)
 
   model = model_creator()
-  model.fit(x_train, y_train, epochs=epochs, batch_size=batch_size, callbacks=[esCallBack, tbCallBack, checkpointCallBack], validation_data=(x_test, y_test), shuffle=True)
+  model.fit(x_train, y_train, epochs=epochs, batch_size=batch_size, callbacks=[tbCallBack, checkpointCallBack], validation_data=(x_test, y_test), shuffle=True)
   loss_and_metrics = model.evaluate(x_test, y_test, verbose=0)
   print(loss_and_metrics)
   print(model.metrics_names[1] + ": " + str(loss_and_metrics[1] * 100))
 
   model.save(model_filepath)
+
+def evaluate_model(model):
+  number_of_files = 6
+
+  X, Y = get_training_data(number_of_files)
+  loss_and_metrics = model.evaluate(X, Y, verbose=0)
+  print('Evaluated:', len(X), 'files')
+  print(model.metrics_names[1] + ": " + str(loss_and_metrics[1] * 100))

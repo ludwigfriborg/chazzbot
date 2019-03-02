@@ -5,7 +5,7 @@ import json
 import os
 from random import shuffle
 
-from dnn_model import model_creator, model_creator_cnn
+from dnn_model import model_creator
 from data_extractor import reshape_moves
 
 from sklearn.model_selection import train_test_split
@@ -57,7 +57,6 @@ def get_training_data(batch_size):
     count += batch_size
 
     if len(file_names) == 0:
-      print('Out')
       file_names = os.listdir("./ext")
       shuffle(file_names)
   print('woh')
@@ -76,7 +75,7 @@ def train_network(model_name):
   # Data set total size: ~32 000 000
   epochs = 25
   batch_size = 512
-  samples_per_epoch = 4096 # 125 000 for one epoch
+  samples_per_epoch = 25000 # 125 000 for one epoch
   validation_steps = 200
   evaluate_samples_per_epoch = 100
   logging_freq = 50000 # number of samples
