@@ -18,6 +18,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 app = Flask(__name__)
 current_model = ''
 c_model = False
+nodes_explored = 0
 
 #-----------------------------------------
 # web-api
@@ -35,7 +36,7 @@ def getmove():
   board.castling_rights = True
   move = (move, 'invalid')
 
-  if chess.Move.from_uci(move[0]) in board.pseudo_legal_moves or board.is_castling(chess.Move.from_uci(move[0])):
+  if chess.Move.from_uci(move[0]) in board.legal_moves or board.is_castling(chess.Move.from_uci(move[0])):
     board.push(chess.Move.from_uci(move[0]))
 
     if board.is_checkmate():
@@ -45,6 +46,7 @@ def getmove():
         c_model = load_model('model/' + current_model + '.h5')
 
       move = predict(board.fen(), c_model, False) # look into fen additional params
+      print(move)
       board.push(chess.Move.from_uci(move[0]))
       if board.is_checkmate():
         move = (move[0], 'Check mate - chazzbot wins')
@@ -57,70 +59,89 @@ def getmove():
 #-----------------------------------------
 # main
 #-----------------------------------------
-def predict_depth(score, board, model, color, depth=1, a_i=math.inf, b_i=-math.inf):
+def predict_depth(score, board, model, maximizing, depth=1, a_i=-math.inf, b_i=math.inf):
   '''
   Searches for the best move further down in the search tree
   The depth defines how far the search tree will be searched
   Returns an prediction score.
 
-  Using Negamax algorithim with alpha beta pruning
+  Using Minimax algorithim with alpha beta pruning
 
   note: increasing depth seriously improves performance of 
   estimations but increases the prediction time drastically
   '''
-  tmp = -math.inf
-  a, b = a_i, b_i
-
+  global nodes_explored
   if depth < 1 or board.is_checkmate():
-    return color * score
-    
+    nodes_explored += 1
+    return (score, '')
+
+  a, b = a_i, b_i
+  tmp = (-math.inf, '') if maximizing else (math.inf, '')
   fen_before = board.fen()
-  predictions = []
+
   for legal in board.legal_moves:
-    board.push(legal)
-    input_thing = reshape_moves(convert_fen_label(fen_before), convert_fen_label(board.fen()))
-    input_thing = np.array([input_thing])
-    predictions.append(model.predict(input_thing))
-    board.pop()
+    if maximizing:
+      board.push(legal)
+      if board.is_checkmate():
+        pred = 100
+      else:
+        input_thing = reshape_moves(convert_fen_label(fen_before), convert_fen_label(board.fen()))
+        input_thing = np.array([input_thing])
+        pred = model.predict(input_thing)[0][0]
+      pscore = score + pred
 
-  np.sort(predictions)
-  for pred in predictions:
-    pscore = score + pred
-    predicted = predict_depth(pscore, board, model, -color, depth=depth-1, a_i=-b, b_i=-a)
+      predicted = predict_depth(pscore, board.copy(), model, False, depth=depth-1, a_i=a, b_i=b)
+      board.pop()
+      
+      if depth == 4:
+        print(predicted[0])
 
-    tmp = max(tmp, -predicted)
-    a = max(a, tmp)
-    if b <= a:
-      return tmp
+      if tmp[0] < predicted[0]:
+        tmp = (predicted[0], legal)
+
+      a = max(a, tmp[0])
+      if b <= a:
+        return tmp
+
+    else:
+      board.push(legal)
+      if board.is_checkmate():
+        pred = 100
+      else:
+        input_thing = reshape_moves(convert_fen_label(fen_before), convert_fen_label(board.fen()))
+        input_thing = np.array([input_thing])
+        pred = model.predict(input_thing)[0][0]
+      pscore = score - pred
+
+      predicted = predict_depth(pscore, board.copy(), model, True, depth=depth-1, a_i=a, b_i=b)
+      board.pop()
+
+      if tmp[0] > predicted[0]:
+        tmp = (predicted[0], legal)
+
+      b = min(b, tmp[0])
+      if b <= a:
+        return tmp
 
   return tmp
 
+import time
 def predict(fen, model, turn=False):
   '''
   Given keras model and fennotation, and turn: returns the best
   scoring move as well as a descriptive text.
   '''
+  global nodes_explored
   board = chess.Board(fen)
   board.turn = turn # use fen later
-  tmp = (-math.inf, '')
-  max_depth = 9
-
-  # For first level save also actual move
-  for legal in board.legal_moves:
-    board.push(legal)
-    
-    input_thing = reshape_moves(convert_fen_label(fen), convert_fen_label(board.fen()))
-    input_thing = np.array([input_thing])
-    pscore = model.predict(input_thing)
-    board.pop()
-
-    # Find accumulated score
-    predicted = (predict_depth(pscore, board, model, 1, depth=max_depth), legal)
-    
-    print(predicted)
-    if tmp[0] <= predicted[0]:
-      tmp = predicted
-
+  max_depth = 4
+  print('predicting...')
+  nodes_explored = 0
+  s = time.time()
+  tmp = predict_depth(0, board.copy(), model, True, depth=max_depth)
+  print('Time it took (in s):', time.time()- s)
+  print('Nodes explored:', nodes_explored)
+  
   move = tmp[1]
   return str(move), 'Predicted move: ' + str(move) + '. With accumulated prediction being: ' + str(tmp[0])
 
@@ -138,6 +159,13 @@ if __name__ == "__main__":
 
   if args.standard_test:
     model = load_model('model/' + args.standard_test[0] + '.h5')
+
+    input_thing = reshape_moves(convert_fen_label('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 0'), convert_fen_label('rnbqkbnr/pppp1ppp/8/4p3/3P4/8/PPP1PPPP/RNBQKBNR w - - 0 0'))
+    input_thing = np.array([input_thing])
+    s = time.time()
+    model.predict(input_thing)[0][0]
+    print('Time it took (in s):', time.time()- s)
+
     evaluate_model(model)
 
   if args.play_game:

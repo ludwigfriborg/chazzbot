@@ -69,8 +69,8 @@ def home_made_train_test_split(x, y, test_size=0.25):
 # should add training function and so on
 def train_network(model_name):
   epochs = 1
-  batch_size = 256
-  number_of_files = 90
+  batch_size = 128
+  number_of_files = 40
 
   X, Y = get_training_data(number_of_files)
   model_filepath = "model/" + model_name + ".h5"

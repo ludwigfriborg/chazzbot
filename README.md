@@ -1,5 +1,5 @@
 # ![](frontend/img/chazzbot.jpeg)Chazzbot
-Chess AI, using a feed-forward neural network as a value function and some simple negamax tree search. Build with Keras and Tensorflow trained on Grandmaster championship games fetched from [https://www.pgnmentor.com/files.html.](https://www.pgnmentor.com/files.html) 
+Chess AI, using a feed-forward neural network as a value function and some simple minimax tree search. Build with Keras and Tensorflow trained on Grandmaster championship games fetched from [https://www.pgnmentor.com/files.html.](https://www.pgnmentor.com/files.html) 
 
 The project uses a flask server as an interface and python-chess for chess related stuff.
 
@@ -19,5 +19,5 @@ The provided model with the name of "model" can be used to perform good estimati
 
 - [x] Add support for castling and so on for the back-end.
 
-- [x] Improve the min ~~max tree~~ (implemented negamax, witch although slower is better in this case)
+- [ ] Improve and optimize the minimax search
 - [ ] Improve the neural network accuracy

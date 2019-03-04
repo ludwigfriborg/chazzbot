@@ -16,13 +16,30 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint
 #-----------------------------------------
 # get trining data
 #-----------------------------------------
+def get_file_data(file_names):
+  pop_new = True
+  data = []
+  for file_name in file_names:
+    file_extension = os.path.splitext(file_name)[1]
+    if file_extension != '.json':
+      continue
+    print('   ' + file_name, end='\r')
+
+    with open("ext/" + file_name, "r") as file:
+      try:
+        data = data + json.load(file)
+      except:
+        continue
+    pop_new = False
+  return pop_new, data
+
 
 #get all data from files
 #need to use GENERATOR
 def get_training_data(batch_size):
   print("loading files...")
   count = 0
-  data = {}
+  data = []
 
   #find all files
   file_names = os.listdir("./ext")
@@ -31,21 +48,13 @@ def get_training_data(batch_size):
   pop_new = True
   while len(file_names):
     if pop_new:
-      file_name = file_names.pop()
-      file_extension = os.path.splitext(file_name)[1]
-      if file_extension != '.json':
-        pop_new = True
-        continue
+      f = []
+      for i in range(0, 5):
+        if len(file_names) < 1:
+          break
+        f.append(file_names.pop())
       count = 0
-      print('   ' + file_name, end='\r')
-      pop_new = False
-
-      with open("ext/" + file_name, "r") as file:
-        try:
-          data = json.load(file)
-        except:
-          print('Excepted')
-          pop_new = True
+      pop_new, data = get_file_data(f)
 
     #splice in data here not only latest file
     x, y = return_training_data(batch_size, count, data)
@@ -65,7 +74,7 @@ def return_training_data(batch_size, point, data):
   X = []
   Y = []
   for x in data[point:point+batch_size]:
-    X.append(x[:-1]) # first are move data
+    X.append(x[:896]) # first are move data
     Y.append([x[-1]]) #last spot is score
 
   return np.array(X), np.array(Y)
@@ -73,12 +82,12 @@ def return_training_data(batch_size, point, data):
 # should add training function and so on
 def train_network(model_name):
   # Data set total size: ~32 000 000
-  epochs = 25
-  batch_size = 512
+  epochs = 5
+  batch_size = 256
   samples_per_epoch = 25000 # 125 000 for one epoch
   validation_steps = 200
   evaluate_samples_per_epoch = 100
-  logging_freq = 50000 # number of samples
+  logging_freq = 500000 # number of samples
 
   model_filepath = "model/" + model_name + ".h5"
 
