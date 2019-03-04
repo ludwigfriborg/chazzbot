@@ -9,7 +9,7 @@ The project uses a flask server as an interface and python-chess for chess relat
 - `python3 move_predictor.py -pg <name>`, initiates a game for the AI to play against itself. Uses the model with the name given as argument.
 - `python3 move_predictor.py -s <name>`, launches as simple rest api for clients to request predictions. Uses the model with the name given as argument.
 
-The provided model with the name of "model" can be used to perform good estimation. The uploaded setup searches only two moves forwards by default, though this can be changed.
+A working model can be downloaded [here](https://www.dropbox.com/s/h4tez83dd7hreuq/model_old.h5?dl=0). It should be placed in a directory with the name "model" in the project root. The uploaded setup searches only 4 moves forwards by default, though this can be changed.
 
 ## Potential improvements
 
