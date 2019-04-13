@@ -21,7 +21,7 @@ app = Flask(__name__)
 current_model = ''
 c_model = False
 nodes_explored = 0
-max_depth = 100
+max_depth = 10000
 
 #-----------------------------------------
 # web-api
@@ -48,7 +48,7 @@ def getmove():
       if not c_model:
         c_model = load_model('model/' + current_model + '.h5')
 
-      move = predict(board.fen(), c_model, False, max_time=2)
+      move = predict(board.fen(), c_model, True, max_time=2)
       print(move)
       board.push(chess.Move.from_uci(move[0]))
       if board.is_checkmate():
@@ -62,7 +62,7 @@ def getmove():
 #-----------------------------------------
 # main
 #-----------------------------------------
-def predict_depth(board, model, maximizing, depth=1, a_i=-math.inf, b_i=math.inf, timer=math.inf):
+def predict_depth(score, board, model, maximizing, depth=1, a_i=-math.inf, b_i=math.inf, timer=math.inf, add_random=0):
   '''
   Searches for the best move further down in the search tree
   The depth defines how far the search tree will be searched
@@ -72,18 +72,25 @@ def predict_depth(board, model, maximizing, depth=1, a_i=-math.inf, b_i=math.inf
 
   note: increasing depth seriously improves performance of 
   estimations but increases the prediction time drastically
+
+  Recommended: add_random if used should perhaps be 0.05 or in that range
   '''
   global nodes_explored, max_depth
 
+  # If its time to stop searching or max depth reached return node, can only be done when comming from a maximizing node
+  current_time = time.time()
+  if (depth < 1 or current_time > timer) and not maximizing:
+    nodes_explored += 1
+    return score
+
   a, b = a_i, b_i
   tmp = (-math.inf, '') if maximizing else (math.inf, '')
+
   fen_before = board.fen()
-
-  if board.is_checkmate():
-    return(math.inf if maximizing else -math.inf, '')
-
   prediction_inputs = []
   prediction_moves = []
+
+  # Generate all possible moves as inputs for predictions
   for legal in board.legal_moves:
     board.push(legal)
     if board.is_checkmate():
@@ -94,29 +101,34 @@ def predict_depth(board, model, maximizing, depth=1, a_i=-math.inf, b_i=math.inf
       prediction_moves.append(legal)
     board.pop()
 
+  # If no possible moves we have lost or won, abort
+  if len(prediction_inputs) == 0:
+    return (-math.inf, '') if maximizing else (math.inf, '')
+  
+  # Make predictions with moves, place into tuple (score, move), sort them
   ps = model.predict(np.array(prediction_inputs))
+
+  #generate random gaussian curve with max at add_random and add it to ps
+  if add_random != 0:
+    g = np.random.normal(0, add_random, len(ps))
+    ps = ps + g
+
+
   predictions = zip(ps, prediction_moves)
   predictions = sorted(predictions, key=lambda x: x[0], reverse=True)
-
-  current_time = time.time()
-  if (depth < 1 or current_time > timer) and maximizing:
-    nodes_explored += 1
-    return predictions[0]
-
 
   # only explore three best
   for p in predictions[0:4]:
     if maximizing:
       board.push(p[1])
-      predicted = predict_depth(board.copy(), model, False, depth=depth-1, a_i=a, b_i=b, timer=timer)
-      score = predicted[0] #+ p[0]
+      predicted = predict_depth(p[0], board.copy(), model, False, depth=depth-1, a_i=a, b_i=b, timer=timer)
       board.pop()
       
       if depth == max_depth:
-        print('* max', score)
+        print('* max', predicted[0])
 
-      if tmp[0] < score:
-        tmp = (score, p[1])
+      if tmp[0] <= predicted[0]:
+        tmp = (predicted[0], p[1])
 
       a = max(a, tmp[0])
       if b <= a:
@@ -124,12 +136,11 @@ def predict_depth(board, model, maximizing, depth=1, a_i=-math.inf, b_i=math.inf
 
     else:
       board.push(p[1])
-      predicted = predict_depth(board.copy(), model, True, depth=depth-1, a_i=a, b_i=b, timer=timer)
-      score = predicted[0] #- p[0]
+      predicted = predict_depth(p[0], board.copy(), model, True, depth=depth-1, a_i=a, b_i=b, timer=timer)
       board.pop()
 
-      if tmp[0] > score:
-        tmp = (score, p[1])
+      if tmp[0] >= predicted[0]:
+        tmp = (predicted[0], p[1])
 
       b = min(b, tmp[0])
       if b <= a:
@@ -153,7 +164,8 @@ def predict(fen, model, turn=False, max_time=2):
   print('***** predicting *****')
   nodes_explored = 0
   s = time.time()
-  tmp = predict_depth(board.copy(), model, True, depth=max_depth, timer=int(time.time()) + max_time)
+  tmp = predict_depth(0, board.copy(), model, True, depth=max_depth, timer=time.time() + max_time)
+  print('* prediction score:', tmp[0])
   print('* Time it took (in s):', time.time() - s)
   print('* Nodes explored:', nodes_explored)
   print('***********************')
@@ -176,6 +188,7 @@ if __name__ == "__main__":
 
   if args.standard_test:
     model = load_model('model/' + args.standard_test[0] + '.h5')
+    print(model.summary())
 
     input_thing = reshape_moves(convert_fen_label('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 0', False), convert_fen_label('rnbqkbnr/pppp1ppp/8/4p3/3P4/8/PPP1PPPP/RNBQKBNR w - - 0 0', True))
     input_thing = np.array([input_thing])
@@ -183,7 +196,7 @@ if __name__ == "__main__":
     model.predict(input_thing)[0][0]
     print('Time it took (in s):', time.time() - s)
     
-    predict('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 0', model, False, max_time=2)
+    predict('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 0', model, False, max_time=1)
 
     evaluate_model(model)
 
@@ -220,6 +233,7 @@ if __name__ == "__main__":
     current_board = chess.Board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
     sunfish_board = sunfish.Position(sunfish.initial, 0, (True,True), (True,True), 0, 0)
     sunfish_searcher = sunfish.Searcher()
+    search_time = 2
     count = 0
 
     while not current_board.is_game_over():
@@ -230,8 +244,12 @@ if __name__ == "__main__":
         print('Invalid board..')
         break
       
-      prediction = predict(current_board.fen(), current_model, True, max_time=2) # play as white
-      if not chess.Move.from_uci(prediction[0]) in current_board.legal_moves:
+      prediction = predict(current_board.fen(), current_model, True, max_time=search_time) # play as white
+      
+      if prediction[0] == '':
+        break
+
+      if not chess.Move.from_uci(prediction[0]) in current_board.pseudo_legal_moves:
         print('Invalid move..')
         break
 
@@ -245,8 +263,10 @@ if __name__ == "__main__":
 
       count += 1
 
-
-      print('Chazzbot move: ', prediction[0])
+      print(count, 'Chazzbot move: ', prediction[0])
+      if current_board.is_checkmate():
+        print('Chazzbot won')
+        break
       print(current_board)
       
       pred_list = list(prediction[0])
@@ -255,26 +275,32 @@ if __name__ == "__main__":
       
       # sunfish make move
       sunfish_board = sunfish_board.move(move)
-      sunfish_move, sunfish_score = sunfish_searcher.search(sunfish_board, secs=2)
+      sunfish_move, sunfish_score = sunfish_searcher.search(sunfish_board, secs=search_time)
       sunfish_board = sunfish_board.move(sunfish_move)
       sunfish_move_adjusted = sunfish.render(119-sunfish_move[0]) + sunfish.render(119-sunfish_move[1])
 
-      print('Sunfish move: ', sunfish_move_adjusted)
+      count += 1
+      print(count, 'Sunfish move: ', sunfish_move_adjusted)
       print('Sunfish score: ', sunfish_score)
       
       c = chess.Move.from_uci(sunfish_move_adjusted)
-      print(chess.square_rank(c.to_square) == 0)
-      print(str(current_board.piece_at(c.from_square)) == 'p')
       right_place = chess.square_rank(c.to_square) == 7 or chess.square_rank(c.to_square) == 0
       right_piece = str(current_board.piece_at(c.from_square)) == 'p' or str(current_board.piece_at(c.from_square)) == 'P'
       if right_piece and right_place: 
         print("Promoted")
         c.promotion = 5
       current_board.push(c)
-      
+
+      if current_board.is_checkmate():
+        print('Sunfish won')
+        print(current_board)
+        break
+
       if not current_board.is_valid():
         print('Sunfish broke it...')
+      
+      if current_board.is_checkmate():
+        break
 
-      count += 1
 
     print('Final score (chazzbot-sunfish): ', current_board.result())

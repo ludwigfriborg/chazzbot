@@ -48,12 +48,12 @@ def get_training_data(batch_size, data_size):
       shuffle(data)
       count = 0
 
-    #splice in data here not only latest file
-    x, y = return_training_data(batch_size, count, data)
+    x, y = return_training_data(batch_size, count, data)    
     if len(x) < batch_size:
       pop_new = True
       data = []
       continue
+    
     yield x, y
 
     count += batch_size
@@ -77,8 +77,8 @@ def return_training_data(batch_size, point, data):
 def train_network(model_name):
   epochs = 6
   batch_size = 256
-  data_size = 262500
-  samples_per_epoch = 42*data_size/batch_size # 42 epochs one = "real" with the current data_size/batch_size
+  data_size = 262144 # number of datapoins loaded into momory at once
+  samples_per_epoch = 36*data_size/batch_size#number of datapoins traversed per epoch
   validation_steps = 200
   evaluate_samples_per_epoch = 100
 

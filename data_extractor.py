@@ -50,7 +50,7 @@ char_dict_b = {
 def reshape_moves(board, move):
   #return np.concatenate(move).tolist()
   #return np.concatenate(board).tolist() + np.concatenate(move).tolist()
-  return board + move
+  return np.concatenate([board, move])
 
 def convert_fen_label(fen, flip):
   parts = fen.split(' ')
@@ -88,7 +88,7 @@ def indivualize_board(board):
       board_indivualized[-piece - 1][i] = -1
     else:
       board_indivualized[piece-1][i] = 1
-  return np.concatenate(board_indivualized).tolist()
+  return np.concatenate(board_indivualized)
 
 def get_training_data(file_name, num_files=0, this_file=0):
   file = open("data/pgn_a_l/" + file_name + ".pgn").read()
