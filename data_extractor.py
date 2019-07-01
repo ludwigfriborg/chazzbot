@@ -48,9 +48,10 @@ char_dict_b = {
 
 
 def reshape_moves(board, move):
+  return move.tolist()
   #return np.concatenate(move).tolist()
   #return np.concatenate(board).tolist() + np.concatenate(move).tolist()
-  return np.concatenate([board, move])
+  #return np.concatenate([board, move])
 
 def convert_fen_label(fen, flip):
   parts = fen.split(' ')
@@ -126,10 +127,10 @@ def get_training_data(file_name, num_files=0, this_file=0):
       # at the moment only keep winning games
       tmp_b = convert_fen_label(str(board.fen()), False)
       board.push(move)
-      move = reshape_moves(tmp_b, convert_fen_label(str(board.fen()), True))
-      move.append(1) # this is winning move
+      move_to_save = reshape_moves(tmp_b, convert_fen_label(str(board.fen()), True))
+      move_to_save.append(1) # this is winning move
     
-      data.append(move)
+      data.append(move_to_save)
 
       #random move
       #for generating winning predictor
@@ -141,9 +142,10 @@ def get_training_data(file_name, num_files=0, this_file=0):
           break
 
       tmp_board.push(move)
-      move1 = reshape_moves(tmp_b, convert_fen_label(str(tmp_board.fen()), True))
-      move1.append(0) # this is loosing move
-      data.append(move1)
+      move_to_save_n = reshape_moves(tmp_b, convert_fen_label(str(tmp_board.fen()), True))
+      move_to_save_n.append(0) # this is loosing move
+      
+      data.append(move_to_save_n)
 
   print('<{0}> Number of games analyzed: {1}/{2} (100%)'.format(file_name, progress, num_of_games))
   return data
@@ -157,12 +159,12 @@ if __name__ == "__main__":
 
   success_count = 0
   all_data = []
-  chunk_move = 25000 #how many moves per file
-  index_num = 0
+  chunk_move = 40000 #how many moves per file
   setname = 'value'
   num_files = math.floor(len(file_names))
-  skip_count = 0
-
+  skip_count = 0 # how many files in to skip
+  index_num = 0 # what name index generation should start on
+  
   for file_index, file_n in enumerate(file_names):
     # skips as many input files.
     if skip_count > 0:
