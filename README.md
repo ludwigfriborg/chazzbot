@@ -5,6 +5,8 @@ The project uses a flask server as an interface and python-chess up to v.0.23.x 
 
 The project now supports playing games against the [Sunfish](<https://github.com/thomasahle/sunfish>).
 
+*The project is using Tensorflow 1.13.1 and Keras 2.2.4*
+
 ## Manual
 - `python3 data_extractor.py`, on run converts all `.pgn` data contained in the folder `data` to the model's internal format. Stores the converted data in the folder `ext` as json.
 - `python3 move_predictor.py -t <name>`, trains a new model with the data in `ext` and stores the model in `model` under the given model name
