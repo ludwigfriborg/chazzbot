@@ -9,298 +9,155 @@ import chess
 import re
 from flask import Flask, request, Response
 
-from data_extractor import convert_fen_label, reshape_moves
 from train_network_generator import train_network, evaluate_model
+
 # from train_network import train_network, evaluate_model
 from keras.models import Sequential, load_model
 import sunfish
 
+from standard_test import standard_test
+from play_game import play_game
+from play_sunfish import play_sunfish
+from search_algorithm import search
+
 # Just disables the warning, doesn't enable AVX/FMA
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 app = Flask(__name__)
-current_model = ''
-c_model = False
+current_model = ""
+c_model = None
 nodes_explored = 0
 max_depth = 10000
 
-#-----------------------------------------
+
+def inference_function(input):
+    global c_model
+
+    # Make predictions with moves, place into tuple (score, move), sort them
+    return c_model.predict(input)
+
+
+def load_inference_model(model_path):
+    global c_model
+
+    c_model = load_model(model_path)
+
+
+# -----------------------------------------
 # web-api
-#-----------------------------------------
-@app.route("/getmove", methods=['POST'])
+# -----------------------------------------
+@app.route("/getmove", methods=["POST"])
 def getmove():
-  global c_model
+    global c_model
 
-  request.get_json(force=True)
-  move = str(request.json['move'])
-  fen = str(request.json['fen'])
+    request.get_json(force=True)
+    move = str(request.json["move"])
+    fen = str(request.json["fen"])
 
-  board = chess.Board(fen + ' w - - 0 0')
-  board.turn = True # use fen later
-  board.castling_rights = True
-  move = (move, 'invalid')
+    board = chess.Board(fen + " w - - 0 0")
+    board.turn = True  # use fen later
+    board.castling_rights = True
+    move = (move, "invalid")
 
-  if chess.Move.from_uci(move[0]) in board.legal_moves or board.is_castling(chess.Move.from_uci(move[0])):
-    board.push(chess.Move.from_uci(move[0]))
+    if chess.Move.from_uci(move[0]) in board.legal_moves or board.is_castling(
+        chess.Move.from_uci(move[0])
+    ):
+        board.push(chess.Move.from_uci(move[0]))
 
-    if board.is_checkmate():
-      move = (move[0], 'Check mate - you win')
-    else:
-      if not c_model:
-        c_model = load_model('model/' + current_model + '.h5')
+        if board.is_checkmate():
+            move = (move[0], "Check mate - you win")
+        else:
+            if not c_model:
+                load_inference_model("model/" + current_model + ".h5")
 
-      move = predict(board.fen(), c_model, True, max_time=2)
-      print(move)
-      board.push(chess.Move.from_uci(move[0]))
-      if board.is_checkmate():
-        move = (move[0], 'Check mate - chazzbot wins')
+            move = predict(board.fen(), False, max_time=2)
+            print(move)
+            board.push(chess.Move.from_uci(move[0]))
+            if board.is_checkmate():
+                move = (move[0], "Check mate - chazzbot wins")
 
-  res = Response(json.dumps([{"fen": board.fen(), "move": move[0], "explination": move[1]}]),  mimetype='application/json')
-  res.headers['Access-Control-Allow-Origin'] = '*'
-  return res  
+    res = Response(
+        json.dumps([{"fen": board.fen(), "move": move[0], "explination": move[1]}]),
+        mimetype="application/json",
+    )
+    res.headers["Access-Control-Allow-Origin"] = "*"
+    return res
 
 
-#-----------------------------------------
+# -----------------------------------------
 # main
-#-----------------------------------------
-def predict_depth(score, board, model, maximizing, depth=1, a_i=-math.inf, b_i=math.inf, timer=math.inf, add_random=0):
-  '''
-  Searches for the best move further down in the search tree
-  The depth defines how far the search tree will be searched
-  Returns an prediction score.
-
-  Using Minimax algorithim with alpha beta pruning
-
-  note: increasing depth seriously improves performance of 
-  estimations but increases the prediction time drastically
-
-  Recommended: add_random if used should perhaps be 0.05 or in that range
-  '''
-  global nodes_explored, max_depth
-
-  # If its time to stop searching or max depth reached return node, can only be done when comming from a maximizing node
-  current_time = time.time()
-  if (depth < 1 or current_time > timer) and not maximizing:
-    nodes_explored += 1
-    return score
-
-  a, b = a_i, b_i
-  tmp = (-math.inf, '') if maximizing else (math.inf, '')
-
-  fen_before = board.fen()
-  prediction_inputs = []
-  prediction_moves = []
-
-  # Generate all possible moves as inputs for predictions
-  for legal in board.legal_moves:
-    board.push(legal)
-    if board.is_checkmate():
-      return (math.inf if maximizing else -math.inf, legal)
-    else:
-      input_thing = reshape_moves(convert_fen_label(fen_before, False), convert_fen_label(board.fen(), True))
-      prediction_inputs.append(input_thing)
-      prediction_moves.append(legal)
-    board.pop()
-
-  # If no possible moves we have lost or won, abort
-  if len(prediction_inputs) == 0:
-    return (-math.inf, '') if maximizing else (math.inf, '')
-  
-  # Make predictions with moves, place into tuple (score, move), sort them
-  ps = model.predict(np.array(prediction_inputs))
-
-  #generate random gaussian curve with max at add_random and add it to ps
-  if add_random != 0:
-    g = np.random.normal(0, add_random, len(ps))
-    ps = ps + g
+# -----------------------------------------
 
 
-  predictions = zip(ps, prediction_moves)
-  predictions = sorted(predictions, key=lambda x: x[0], reverse=True)
+def predict(fen, turn=False, max_time=2):
+    """
+    Given keras model and fennotation, and turn: returns the best
+    scoring move as well as a descriptive text.
 
-  # only explore three best
-  for p in predictions[0:4]:
-    if maximizing:
-      board.push(p[1])
-      predicted = predict_depth(p[0], board.copy(), model, False, depth=depth-1, a_i=a, b_i=b, timer=timer)
-      board.pop()
-      
-      if depth == max_depth:
-        print('* max', predicted[0])
+    The max_time indicates the number of seconds the search will
+    go on until search will be stopped with the best result returned.
+    """
+    global max_depth
+    board = chess.Board(fen)
+    board.turn = turn  # use fen later
 
-      if tmp[0] <= predicted[0]:
-        tmp = (predicted[0], p[1])
+    print("***** predicting *****")
+    s = time.time()
+    tmp, nodes_explored = search(
+        0,
+        board.copy(),
+        True,
+        inference_function,
+        depth=max_depth,
+        timer=time.time() + max_time,
+        max_depth=max_depth,
+    )
+    print("* prediction score:", tmp[0])
+    print("* Time it took (in s):", time.time() - s)
+    print("* Nodes explored:", nodes_explored)
+    print("***********************")
 
-      a = max(a, tmp[0])
-      if b <= a:
-        return tmp
+    move = tmp[1]
+    return (
+        str(move),
+        "Predicted move: "
+        + str(move)
+        + ". With accumulated prediction being: "
+        + str(tmp[0]),
+    )
 
-    else:
-      board.push(p[1])
-      predicted = predict_depth(p[0], board.copy(), model, True, depth=depth-1, a_i=a, b_i=b, timer=timer)
-      board.pop()
-
-      if tmp[0] >= predicted[0]:
-        tmp = (predicted[0], p[1])
-
-      b = min(b, tmp[0])
-      if b <= a:
-         return tmp
-
-  return tmp
-
-import time
-def predict(fen, model, turn=False, max_time=2):
-  '''
-  Given keras model and fennotation, and turn: returns the best
-  scoring move as well as a descriptive text.
-
-  The max_time indicates the number of seconds the search will 
-  go on until search will be stopped with the best result returned.
-  '''
-  global nodes_explored, max_depth
-  board = chess.Board(fen)
-  board.turn = turn # use fen later
-
-  print('***** predicting *****')
-  nodes_explored = 0
-  s = time.time()
-  tmp = predict_depth(0, board.copy(), model, True, depth=max_depth, timer=time.time() + max_time)
-  print('* prediction score:', tmp[0])
-  print('* Time it took (in s):', time.time() - s)
-  print('* Nodes explored:', nodes_explored)
-  print('***********************')
-  
-  move = tmp[1]
-  return str(move), 'Predicted move: ' + str(move) + '. With accumulated prediction being: ' + str(tmp[0])
 
 if __name__ == "__main__":
-  parser = argparse.ArgumentParser(description='Chezzbot, chess move predictor using a regular feed forward network!')
-  parser.add_argument('-t','--train', help='Trains model', nargs=1)
-  parser.add_argument('-st','--standard-test', help='Tests model on some standard moves', nargs=1)
-  parser.add_argument('-pg','--play-game', help='plays quick game', nargs=1)
-  parser.add_argument('-s','--server', help='start flask service', nargs=1)
-  parser.add_argument('-sun','--sunfish', help='plays a game against the sunfish ai', nargs=1)
+    parser = argparse.ArgumentParser(
+        description="Chezzbot, chess move predictor using a regular feed forward network!"
+    )
+    parser.add_argument("-t", "--train", help="Trains model", nargs=1)
+    parser.add_argument(
+        "-st", "--standard-test", help="Tests model on some standard moves", nargs=1
+    )
+    parser.add_argument("-pg", "--play-game", help="plays quick game", nargs=1)
+    parser.add_argument("-s", "--server", help="start flask service", nargs=1)
+    parser.add_argument(
+        "-sun", "--sunfish", help="plays a game against the sunfish ai", nargs=1
+    )
 
-  args = parser.parse_args()
+    args = parser.parse_args()
 
-  if args.train:
-    train_network(args.train[0])
+    if args.train:
+        train_network(args.train[0])
 
-  if args.standard_test:
-    model = load_model('model/' + args.standard_test[0] + '.h5')
-    print(model.summary())
+    if args.standard_test:
+        load_inference_model("model/" + args.standard_test[0] + ".h5")
+        standard_test(c_model, predict)
 
-    input_thing = reshape_moves(convert_fen_label('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 0', False), convert_fen_label('rnbqkbnr/pppp1ppp/8/4p3/3P4/8/PPP1PPPP/RNBQKBNR w - - 0 0', True))
-    input_thing = np.array([input_thing])
-    s = time.time()
-    model.predict(input_thing)[0][0]
-    print('Time it took (in s):', time.time() - s)
-    
-    predict('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 0', model, False, max_time=1)
+    if args.play_game:
+        load_inference_model("model/" + args.play_game[0] + ".h5")
+        play_game(predict)
 
-    evaluate_model(model)
+    if args.server:
+        current_model = args.server[0]
+        app.run(host="0.0.0.0", port=5557)
 
-  if args.play_game:
-    model = load_model('model/' + args.play_game[0] + '.h5')
-
-    current_board = chess.Board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
-    count = 0
-
-    while not current_board.is_game_over():
-      print(current_board)
-      prediction = predict(current_board.fen(), model, current_board.turn, max_time=2)
-      count += 1
-
-      print(str(count) + '. ' + prediction[1])
-
-      if not current_board.is_valid():
-        print('Invalid board..')
-        break
-      if not chess.Move.from_uci(prediction[0]) in current_board.legal_moves:
-        print('Invalid move..')
-        break
-
-      current_board.push(chess.Move.from_uci(prediction[0]))
-    print('Final score: ', current_board.result())
-
-  if args.server:
-    current_model = args.server[0]
-    app.run(host='0.0.0.0', port=5557)
-
-  # This will not work unless you have the modified version of sunfish
-  if args.sunfish:
-    current_model = load_model('model/' + args.sunfish[0] + '.h5')
-    current_board = chess.Board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
-    sunfish_board = sunfish.Position(sunfish.initial, 0, (True,True), (True,True), 0, 0)
-    sunfish_searcher = sunfish.Searcher()
-    search_time = 2
-    count = 0
-
-    while not current_board.is_game_over():
-      print(current_board)
-
-      if not current_board.is_valid():
-        sunfish.print_pos(sunfish_board)
-        print('Invalid board..')
-        break
-      
-      prediction = predict(current_board.fen(), current_model, True, max_time=search_time) # play as white
-      
-      if prediction[0] == '':
-        break
-
-      if not chess.Move.from_uci(prediction[0]) in current_board.pseudo_legal_moves:
-        print('Invalid move..')
-        break
-
-      c = chess.Move.from_uci(prediction[0])
-      right_place = chess.square_rank(c.to_square) == 7 or chess.square_rank(c.to_square) == 0
-      right_piece = str(current_board.piece_at(c.from_square)) == 'p' or str(current_board.piece_at(c.from_square)) == 'P'
-      if right_piece and right_place: 
-        print("Promoted")
-        c.promotion = 5
-      current_board.push(c)
-
-      count += 1
-
-      print(count, 'Chazzbot move: ', prediction[0])
-      if current_board.is_checkmate():
-        print('Chazzbot won')
-        break
-      print(current_board)
-      
-      pred_list = list(prediction[0])
-      match = re.match('([a-h][1-8])'*2, prediction[0])
-      move = sunfish.parse(match.group(1)), sunfish.parse(match.group(2))
-      
-      # sunfish make move
-      sunfish_board = sunfish_board.move(move)
-      sunfish_move, sunfish_score = sunfish_searcher.search(sunfish_board, secs=search_time)
-      sunfish_board = sunfish_board.move(sunfish_move)
-      sunfish_move_adjusted = sunfish.render(119-sunfish_move[0]) + sunfish.render(119-sunfish_move[1])
-
-      count += 1
-      print(count, 'Sunfish move: ', sunfish_move_adjusted)
-      print('Sunfish score: ', sunfish_score)
-      
-      c = chess.Move.from_uci(sunfish_move_adjusted)
-      right_place = chess.square_rank(c.to_square) == 7 or chess.square_rank(c.to_square) == 0
-      right_piece = str(current_board.piece_at(c.from_square)) == 'p' or str(current_board.piece_at(c.from_square)) == 'P'
-      if right_piece and right_place: 
-        print("Promoted")
-        c.promotion = 5
-      current_board.push(c)
-
-      if current_board.is_checkmate():
-        print('Sunfish won')
-        print(current_board)
-        break
-
-      if not current_board.is_valid():
-        print('Sunfish broke it...')
-      
-      if current_board.is_checkmate():
-        break
-
-
-    print('Final score (chazzbot-sunfish): ', current_board.result())
+    # This will not work unless you have the modified version of sunfish
+    if args.sunfish:
+        load_inference_model("model/" + args.sunfish[0] + ".h5")
+        play_sunfish(predict)
